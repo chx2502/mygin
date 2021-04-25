@@ -19,6 +19,10 @@ type Context struct {
 	StatusCode int
 	// 请求参数
 	Params map[string]string
+	// 中间件
+	handlers []HandleFunc
+	// 当前执行的中间件的下标
+	index int
 }
 
 func newContext(w http.ResponseWriter, req *http.Request) *Context {
@@ -27,6 +31,15 @@ func newContext(w http.ResponseWriter, req *http.Request) *Context {
 		Req: req,
 		Path: req.URL.Path,
 		Method: req.Method,
+		index: -1,
+	}
+}
+
+func (c *Context) Next() {
+	c.index++
+	count := len(c.handlers)
+	for ; c.index < count; c.index++ {
+		c.handlers[c.index](c)
 	}
 }
 
@@ -76,4 +89,9 @@ func (c *Context) HTML(code int, html string) {
 	c.SetHeader("Content-Type", "text/html")
 	c.Status(code)
 	c.Writer.Write([]byte(html))
+}
+
+func (c *Context) Fail(code int, err string) {
+	c.index = len(c.handlers)
+	c.JSON(code, H{"message": err})
 }

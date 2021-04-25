@@ -1,15 +1,14 @@
 package main
 
 import (
-	//"fmt"
-	"net/http"
 	"mygin"
+	"net/http"
 )
 
 func main() {
 	r := mygin.New()
-
-	r.GET("/", func(c *mygin.Context) {
+	r.Use(mygin.Logger()) // 将 Logger 作为整个框架的中间件
+	r.GET("/index", func(c *mygin.Context) {
 		c.HTML(http.StatusOK, "<h1>Home Page</h1>")
 	})
 
@@ -23,7 +22,9 @@ func main() {
 			c.String(http.StatusOK, "hello %s, you are at %s\n", c.Param("name"), c.Path)
 		})
 	}
+
 	v2 := r.NewGroup("/v2")
+	v2.Use(mygin.MiddlewareV2())
 	{
 		v2.GET("/assets/*filepath", func(c *mygin.Context) {
 			c.JSON(http.StatusOK, mygin.H{"filepath": c.Param("filepath")})
@@ -36,7 +37,5 @@ func main() {
 			})
 		})
 	}
-
-
 	r.Run(":9999")
 }

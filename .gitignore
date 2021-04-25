@@ -3,4 +3,3 @@
 .vscode
 tmp
 *.db
-*.sum

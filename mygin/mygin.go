@@ -3,6 +3,8 @@ package mygin
 import (
 	"log"
 	"net/http"
+	"path"
+	"strings"
 )
 
 type HandleFunc func(c *Context)
@@ -52,11 +54,40 @@ func (group *RouterGroup) POST(pattern string, handler HandleFunc) {
 	group.addRoute("POST", pattern, handler)
 }
 
+func (group *RouterGroup) Use(middlewares ...HandleFunc) {
+	group.middlewares = append(group.middlewares, middlewares...)
+}
+
+
 func (e *Engine) Run(addr string) (err error) {
 	return http.ListenAndServe(addr, e)
 }
 
 func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var middlewares []HandleFunc
+	for _, group := range e.groups {
+		if strings.HasPrefix(req.URL.Path, group.prefix) {
+			middlewares = append(middlewares, group.middlewares...)
+		}
+	}
 	c := newContext(w, req)
+	c.handlers = middlewares
 	e.router.handle(c)
+}
+
+
+func (group *RouterGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandleFunc {
+	absPath := path.Join(group.prefix, relativePath)
+	fileServer := http.StripPrefix(absPath, http.FileServer(fs))
+	return func(c *Context) {
+		file := c.Param("filepath")
+
+		// 检查请求的文件是否存在
+		if _, err := fs.Open(file); err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		fileServer.ServeHTTP(c.Writer, c.Req)
+	}
 }
